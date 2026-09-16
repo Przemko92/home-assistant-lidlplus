@@ -1,0 +1,13 @@
+{
+  "domain": "lidl_plus",
+  "name": "Lidl Plus",
+  "codeowners": ["@Przemko92"],
+  "config_flow": true,
+  "documentation": "https://github.com/Przemko92/home-assistant-lidlplus",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/Przemko92/home-assistant-lidlplus/issues",
+  "loggers": ["custom_components.lidl_plus"],
+  "requirements": ["ha-browser-companion>=0.1.1"],
+  "version": "0.1.0"
+}

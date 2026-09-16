@@ -1,0 +1,4 @@
+# Test suite dependencies (GitHub Actions CI + local development).
+# Not a runtime requirement for HACS users — only custom_components/ is installed.
+pytest-homeassistant-custom-component
+ha-browser-companion>=0.1.1

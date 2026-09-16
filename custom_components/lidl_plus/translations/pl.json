@@ -1,0 +1,88 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Lidl Plus",
+        "description": "Wybierz kraj konta Lidl Plus. Logowanie idzie przez dodatek Browser Companion (Chromium w pasku bocznym).",
+        "data": {
+          "country": "Kraj"
+        }
+      },
+      "language": {
+        "title": "Język Lidl Plus",
+        "description": "Ten kraj ma więcej niż jeden język Lidl Plus.",
+        "data": {
+          "language": "Język"
+        }
+      },
+      "companion": {
+        "title": "Browser Companion",
+        "description": "Otwórz Browser Companion w nowym oknie:\n\n[{companion_url}]({companion_href})\n\nTam captcha, hasło i MFA. Ten ekran czeka na przekierowanie com.lidlplus.app://."
+      },
+      "companion_failed": {
+        "title": "Browser Companion",
+        "description": "Nie udało się zalogować przez Browser Companion. Uruchom dodatek i zatwierdź, żeby spróbować ponownie.\n\n[{companion_url}]({companion_href})"
+      }
+    },
+    "error": {
+      "cannot_connect": "Nie udało się połączyć z serwerami Lidl Plus.",
+      "invalid_token": "Token odrzucony. Zaloguj się ponownie.",
+      "companion_unavailable": "Browser Companion nie przechwycił logowania. Uruchom dodatek i spróbuj ponownie."
+    },
+    "abort": {
+      "already_configured": "Ta karta lojalnościowa jest już skonfigurowana.",
+      "reauth_successful": "Ponowne logowanie zakończone.",
+      "wrong_account": "Ten token należy do innej karty lojalnościowej.",
+      "cannot_connect": "Nie udało się połączyć z serwerami Lidl Plus.",
+      "invalid_token": "Przechwycone logowanie zostało odrzucone. Spróbuj ponownie.",
+      "companion_requires_supervisor": "Lidl Plus wymaga Home Assistant OS albo Supervised z dodatkiem Browser Companion.",
+      "companion_not_running": "Uruchom dodatek Browser Companion, a potem dodaj tę integrację ponownie."
+    },
+    "progress": {
+      "companion_wait": "Otwórz Browser Companion w nowym oknie:\n\n[{companion_url}]({companion_href})\n\nZaloguj się tam (captcha + MFA). Ten ekran zaktualizuje się po przechwyceniu przekierowania."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opcje Lidl Plus",
+        "data": {
+          "scan_interval": "Interwał odświeżania",
+          "auto_coupons": "Automatycznie aktywuj kupony"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "card": {
+        "name": "Karta lojalnościowa"
+      },
+      "last_transaction": {
+        "name": "Ostatnie transakcje"
+      },
+      "today_spend": {
+        "name": "Dzisiejsze wydatki"
+      },
+      "coupons": {
+        "name": "Kupony"
+      },
+      "coupons_available": {
+        "name": "Kupony do aktywacji"
+      },
+      "coupons_upcoming": {
+        "name": "Kupony przyszłe"
+      }
+    },
+    "button": {
+      "coupons_activate": {
+        "name": "Aktywuj kupony"
+      }
+    },
+    "switch": {
+      "auto_coupons": {
+        "name": "Auto kupony"
+      }
+    }
+  }
+}

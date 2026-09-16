@@ -1,0 +1,88 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Lidl Plus",
+        "description": "Choose the country of your Lidl Plus account. Sign-in uses the Browser Companion add-on (Chromium in the sidebar).",
+        "data": {
+          "country": "Country"
+        }
+      },
+      "language": {
+        "title": "Lidl Plus language",
+        "description": "This country has more than one Lidl Plus language.",
+        "data": {
+          "language": "Language"
+        }
+      },
+      "companion": {
+        "title": "Browser Companion",
+        "description": "Open Browser Companion in a new window:\n\n[{companion_url}]({companion_href})\n\nComplete captcha, password and MFA there. This screen waits for the com.lidlplus.app:// redirect."
+      },
+      "companion_failed": {
+        "title": "Browser Companion",
+        "description": "Could not sign in with Browser Companion. Start the add-on, then submit to try again.\n\n[{companion_url}]({companion_href})"
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach Lidl Plus servers.",
+      "invalid_token": "Token was rejected. Sign in again.",
+      "companion_unavailable": "Browser Companion did not capture the login. Start the add-on and try again."
+    },
+    "abort": {
+      "already_configured": "This loyalty card is already configured.",
+      "reauth_successful": "Re-authentication successful.",
+      "wrong_account": "This token belongs to a different loyalty card.",
+      "cannot_connect": "Could not reach Lidl Plus servers.",
+      "invalid_token": "The captured login was rejected. Try again.",
+      "companion_requires_supervisor": "Lidl Plus needs Home Assistant OS or Supervised with the Browser Companion add-on.",
+      "companion_not_running": "Start the Browser Companion add-on, then add this integration again."
+    },
+    "progress": {
+      "companion_wait": "Open Browser Companion in a new window:\n\n[{companion_url}]({companion_href})\n\nSign in there (captcha + MFA). This screen updates when the redirect is captured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Lidl Plus options",
+        "data": {
+          "scan_interval": "Update interval",
+          "auto_coupons": "Automatically activate coupons"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "card": {
+        "name": "Loyalty card"
+      },
+      "last_transaction": {
+        "name": "Last transactions"
+      },
+      "today_spend": {
+        "name": "Today's spend"
+      },
+      "coupons": {
+        "name": "Coupons"
+      },
+      "coupons_available": {
+        "name": "Coupons ready"
+      },
+      "coupons_upcoming": {
+        "name": "Upcoming coupons"
+      }
+    },
+    "button": {
+      "coupons_activate": {
+        "name": "Activate coupons"
+      }
+    },
+    "switch": {
+      "auto_coupons": {
+        "name": "Auto coupons"
+      }
+    }
+  }
+}

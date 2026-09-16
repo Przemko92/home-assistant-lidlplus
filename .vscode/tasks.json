@@ -1,0 +1,64 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Home Assistant on port 8123",
+            "type": "shell",
+            "command": "scripts/develop",
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "focus": false
+            },
+            "problemMatcher": {
+                "owner": "homeassistant",
+                "pattern": {
+                    "regexp": "."
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": ".",
+                    "endsPattern": "(Waiting|Listening) for remote debug connection"
+                }
+            }
+        },
+        {
+            "label": "Run Home Assistant configuration check",
+            "type": "shell",
+            "command": "python3 -m homeassistant --config config --script check_config",
+            "problemMatcher": []
+        },
+        {
+            "label": "Upgrade Home Assistant to latest",
+            "type": "shell",
+            "command": "python3 -m pip install --upgrade homeassistant",
+            "problemMatcher": []
+        },
+        {
+            "label": "Install a specific version of Home Assistant",
+            "type": "shell",
+            "command": "python3 -m pip install homeassistant==${input:haVersion}",
+            "problemMatcher": []
+        },
+        {
+            "label": "Lint",
+            "type": "shell",
+            "command": "scripts/lint",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run tests",
+            "type": "shell",
+            "command": "python3 -m pytest tests/ -q",
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "id": "haVersion",
+            "type": "promptString",
+            "description": "Home Assistant version to install (e.g. 2026.8.0)"
+        }
+    ]
+}

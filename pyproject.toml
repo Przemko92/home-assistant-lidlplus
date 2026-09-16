@@ -1,0 +1,11 @@
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+exclude = [".venv", "decompiled-app", "config"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["custom_components", "tests"]

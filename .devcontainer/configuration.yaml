@@ -1,0 +1,11 @@
+default_config:
+
+logger:
+  default: info
+  logs:
+    custom_components.lidl_plus: debug
+
+# Remote Python debugger (doc: https://www.home-assistant.io/integrations/debugpy/)
+debugpy:
+  start: true
+  wait: true

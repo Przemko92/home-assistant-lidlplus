@@ -1,0 +1,18 @@
+{
+  "entity": {
+    "sensor": {
+      "card": { "default": "mdi:credit-card-chip-outline" },
+      "last_transaction": { "default": "mdi:receipt-text-outline" },
+      "today_spend": { "default": "mdi:cash" },
+      "coupons": { "default": "mdi:ticket-percent-outline" },
+      "coupons_available": { "default": "mdi:ticket-confirmation-outline" },
+      "coupons_upcoming": { "default": "mdi:calendar-clock" }
+    },
+    "button": {
+      "coupons_activate": { "default": "mdi:gesture-tap-button" }
+    },
+    "switch": {
+      "auto_coupons": { "default": "mdi:auto-fix" }
+    }
+  }
+}
