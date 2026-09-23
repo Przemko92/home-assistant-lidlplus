@@ -439,23 +439,9 @@ class LidlPlusCoordinator(DataUpdateCoordinator[LidlPlusData]):
         self._rewards[coupon.coupon_id] = reward
         self._prune_rewards()
         await self._save_rewards()
-        self._notify(reward)
         if refresh:
             await self.async_request_refresh()
         return reward.as_dict()
-
-    def _notify(self, reward: CouponReward) -> None:
-        from homeassistant.components import persistent_notification
-
-        title = reward.title or "Lidl Plus"
-        extra = [value for value in (reward.discount,) if value]
-        message = title if not extra else f"{title} ({', '.join(extra)})"
-        persistent_notification.async_create(
-            self.hass,
-            message,
-            title="Lidl Plus coupon",
-            notification_id=f"lidl_plus_coupon_{reward.coupon_id}",
-        )
 
 
 def _sort_tickets(tickets: list[dict[str, Any]]) -> list[dict[str, Any]]:

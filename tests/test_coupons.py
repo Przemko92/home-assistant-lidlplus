@@ -1,6 +1,7 @@
 """Coupon discovery, activation and reward history."""
 
 from datetime import datetime, timezone
+from unittest.mock import patch
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -333,3 +334,19 @@ async def test_claimed_coupon_survives_the_next_one(coordinator_factory):
     assert [item.coupon_id for item in coupons] == ["second"]
     assert data.last_reward is not None
     assert data.last_reward.coupon_id == "first"
+
+
+async def test_activation_does_not_create_notification(coordinator_factory):
+    api = FakeApi([_promo("a")])
+    coordinator = coordinator_factory(api)
+    coupon = Coupon.from_payload(_promo("a"))
+    assert coupon is not None
+
+    with patch(
+        "homeassistant.components.persistent_notification.async_create"
+    ) as create:
+        claimed = await coordinator.async_activate_coupon(coupon, refresh=False)
+
+    create.assert_not_called()
+    assert claimed["coupon_id"] == "a"
+    assert "a" in coordinator._rewards
