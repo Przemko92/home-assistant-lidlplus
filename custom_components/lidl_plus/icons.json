@@ -4,6 +4,7 @@
       "card": { "default": "mdi:credit-card-chip-outline" },
       "last_transaction": { "default": "mdi:receipt-text-outline" },
       "today_spend": { "default": "mdi:cash" },
+      "total_spend": { "default": "mdi:cash-multiple" },
       "coupons": { "default": "mdi:ticket-percent-outline" },
       "coupons_available": { "default": "mdi:ticket-confirmation-outline" },
       "coupons_upcoming": { "default": "mdi:calendar-clock" }

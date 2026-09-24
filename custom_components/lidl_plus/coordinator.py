@@ -183,6 +183,7 @@ class LidlPlusCoordinator(DataUpdateCoordinator[LidlPlusData]):
             else None
         )
         today_total = await self._today_total(tickets)
+        total_spend = self._total_spend(tickets)
         currency = _currency_code(details, self.country.currency)
         store_id = store_id_from_payloads(
             details,
@@ -203,6 +204,7 @@ class LidlPlusCoordinator(DataUpdateCoordinator[LidlPlusData]):
             last_ticket=last,
             last_details=details,
             today_total=today_total,
+            total_spend=total_spend,
             currency=currency,
             receipts=receipts,
         )
@@ -225,6 +227,14 @@ class LidlPlusCoordinator(DataUpdateCoordinator[LidlPlusData]):
                 continue
             if parsed.astimezone(self.zone).date() != today:
                 continue
+            amount = _as_float(ticket.get("totalAmount") or ticket.get("total_price"))
+            if amount is not None:
+                total += amount
+        return round(total, 2)
+
+    def _total_spend(self, tickets: list[dict[str, Any]]) -> float:
+        total = 0.0
+        for ticket in tickets:
             amount = _as_float(ticket.get("totalAmount") or ticket.get("total_price"))
             if amount is not None:
                 total += amount

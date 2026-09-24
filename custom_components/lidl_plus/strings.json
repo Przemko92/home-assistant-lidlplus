@@ -64,6 +64,9 @@
       "today_spend": {
         "name": "Today's spend"
       },
+      "total_spend": {
+        "name": "Total spend"
+      },
       "coupons": {
         "name": "Coupons"
       },

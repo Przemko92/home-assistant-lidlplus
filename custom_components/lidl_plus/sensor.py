@@ -1,4 +1,4 @@
-"""Sensors: card, last ticket, today spend, coupons."""
+"""Sensors: card, last ticket, today spend, total spend, coupons."""
 
 from __future__ import annotations
 
@@ -31,6 +31,7 @@ async def async_setup_entry(
             LidlPlusCardSensor(coordinator),
             LidlPlusLastTransactionSensor(coordinator),
             LidlPlusTodaySpendSensor(coordinator),
+            LidlPlusTotalSpendSensor(coordinator),
             LidlPlusCouponsSensor(coordinator),
             LidlPlusCouponsAvailableSensor(coordinator),
             LidlPlusCouponsUpcomingSensor(coordinator),
@@ -139,6 +140,26 @@ class LidlPlusTodaySpendSensor(LidlPlusEntity, SensorEntity):
     @property
     def native_value(self) -> float:
         return self.coordinator.data.today_total if self.coordinator.data else 0.0
+
+class LidlPlusTotalSpendSensor(LidlPlusEntity, SensorEntity):
+    """Total spending across all fetched tickets."""
+
+    _attr_translation_key = "total_spend"
+    _attr_device_class = SensorDeviceClass.MONETARY
+    _attr_state_class = SensorStateClass.TOTAL
+    _attr_suggested_display_precision = 2
+
+    def __init__(self, coordinator: LidlPlusCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{self._device_id}_total_spend"
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        return self.coordinator.currency
+
+    @property
+    def native_value(self) -> float:
+        return self.coordinator.data.total_spend if self.coordinator.data else 0.0
 
 
 class LidlPlusCouponsSensor(LidlPlusEntity, SensorEntity):

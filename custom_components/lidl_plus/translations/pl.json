@@ -64,6 +64,9 @@
       "today_spend": {
         "name": "Dzisiejsze wydatki"
       },
+      "total_spend": {
+        "name": "Całkowite wydatki"
+      },
       "coupons": {
         "name": "Kupony"
       },
