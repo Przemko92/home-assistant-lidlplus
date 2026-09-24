@@ -841,6 +841,7 @@ class LidlPlusData:
     last_ticket: dict[str, Any] | None = None
     last_details: dict[str, Any] | None = None
     today_total: float = 0.0
+    total_spend: float = 0.0
     currency: str | None = None
     receipts: list[Receipt] = field(default_factory=list)
     coupons: list[Coupon] = field(default_factory=list)
