@@ -79,7 +79,7 @@ def api_accept_language(language: str, country: str = "") -> str:
     if len(primary) >= 2:
         return primary[:2]
     fallback = (country or "en").strip().lower()
-    return (fallback[:2] if fallback else "en")
+    return fallback[:2] if fallback else "en"
 
 
 def _filled(value: Any) -> bool:
@@ -121,7 +121,17 @@ def _as_segment_ids(payload: Any) -> list[str]:
     """Normalize the user-segments payload into a list of id strings."""
     values: Any = payload
     if isinstance(payload, dict):
-        for key in ("segmentIds", "segments", "ids", "data", "items"):
+        for key in (
+            "segmentIds",
+            "segments",
+            "userSegments",
+            "userSegmentIds",
+            "ids",
+            "data",
+            "items",
+            "values",
+            "results",
+        ):
             nested = payload.get(key)
             if nested is not None:
                 values = nested
@@ -330,7 +340,8 @@ class LidlPlusApi:
             headers["Store-Id"] = store_id
         segments = await self.user_segments()
         if segments:
-            headers["Segment-Ids"] = ",".join(segments)
+            # Personalized coupons (Dla Ciebie) are omitted without this header.
+            headers["Segment-ids"] = ",".join(segments)
         result = await self.request(
             "GET",
             f"{COUPONS_BASE}/v4/promotionslist",
@@ -339,15 +350,29 @@ class LidlPlusApi:
         return result if isinstance(result, dict) else {"sections": result or []}
 
     async def activate_promotion(self, promotion_id: str) -> Any:
-        return await self.request(
-            "POST",
-            f"{COUPONS_BASE}/v2/promotions/{promotion_id}/activation",
-            json={},
-            headers={
-                "Country": self.country,
-                "Action-Location": ACTION_LOCATION,
-            },
-        )
+        url = f"{COUPONS_BASE}/v2/promotions/{promotion_id}/activation"
+        headers = {
+            "Country": self.country,
+            "Action-Location": ACTION_LOCATION,
+        }
+        try:
+            return await self.request("POST", url, json={}, headers=headers)
+        except LidlPlusError as err:
+            # Assignable coupons (Dla Ciebie, Kupon Plus, some store offers)
+            # reject an empty body and activate with an empty article selection.
+            if err.status not in {400, 404, 422}:
+                raise
+            _LOGGER.debug(
+                "Empty activation body failed for %s (%s); retrying",
+                promotion_id,
+                err,
+            )
+            return await self.request(
+                "POST",
+                url,
+                json={"articleSelection": []},
+                headers=headers,
+            )
 
 
 async def fetch_gateway_countries(session: aiohttp.ClientSession) -> Any:

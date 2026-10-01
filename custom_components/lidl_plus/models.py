@@ -190,7 +190,9 @@ def _html_printed_receipt(payload: dict[str, Any]) -> str | None:
     return None
 
 
-def _find_html_printed_receipt(payload: dict[str, Any], *, depth: int = 0) -> str | None:
+def _find_html_printed_receipt(
+    payload: dict[str, Any], *, depth: int = 0
+) -> str | None:
     found = _html_printed_receipt(payload)
     if found:
         return found
@@ -469,19 +471,19 @@ def store_id_from_payloads(*payloads: Any) -> str | None:
     for payload in payloads:
         if not isinstance(payload, dict):
             continue
-        for key in ("storeID", "storeId", "store_id"):
+        for key in ("storeID", "storeId", "store_id", "storeCode", "storeKey"):
             value = payload.get(key)
             if value:
                 return str(value)
         store = payload.get("store")
         if isinstance(store, dict):
-            for key in ("id", "storeId", "storeKey"):
+            for key in ("id", "storeId", "storeKey", "storeCode", "code"):
                 value = store.get(key)
                 if value:
                     return str(value)
         vendor = payload.get("vendor")
         if isinstance(vendor, dict):
-            for key in ("id", "storeId", "storeKey"):
+            for key in ("id", "storeId", "storeKey", "storeCode", "code"):
                 value = vendor.get(key)
                 if value:
                     return str(value)
@@ -498,15 +500,22 @@ def flatten_promotions(payload: Any) -> list[dict[str, Any]]:
                 and "sections" not in payload
                 and "promotions" not in payload
             ):
-                return flatten_promotions(nested)
+                found = flatten_promotions(nested)
+                for extra_key, extra_value in payload.items():
+                    if extra_key in {"data", "result", "payload"}:
+                        continue
+                    found.extend(_sibling_promotions(extra_value))
+                return _dedupe_promotions(found)
         if isinstance(payload.get("sections"), list):
             sections = payload["sections"]
-        elif isinstance(payload.get("promotions"), list) or isinstance(
-            payload.get("items"), list
+        elif (
+            isinstance(payload.get("promotions"), list)
+            or isinstance(payload.get("items"), list)
+            or isinstance(payload.get("coupons"), list)
         ):
             sections = [payload]
         else:
-            return []
+            sections = []
     elif isinstance(payload, list):
         sections = payload
     else:
@@ -524,7 +533,12 @@ def flatten_promotions(payload: Any) -> list[dict[str, Any]]:
         if not isinstance(section, dict):
             continue
         section_name = section.get("name")
-        items = section.get("promotions") or section.get("items") or []
+        items = (
+            section.get("promotions")
+            or section.get("items")
+            or section.get("coupons")
+            or []
+        )
         if not isinstance(items, list):
             continue
         for item in items:
@@ -540,7 +554,61 @@ def flatten_promotions(payload: Any) -> list[dict[str, Any]]:
             if section_name and "section" not in row:
                 row["section"] = section_name
             promotions.append(row)
-    return promotions
+        for nested_key in ("sections", "subsections", "subSections", "categories"):
+            nested = section.get(nested_key)
+            if isinstance(nested, list) and nested:
+                promotions.extend(flatten_promotions(nested))
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            if key in {
+                "sections",
+                "data",
+                "result",
+                "payload",
+                "promotions",
+                "items",
+                "coupons",
+            }:
+                continue
+            extra = _sibling_promotions(value)
+            if extra:
+                promotions.extend(extra)
+    return _dedupe_promotions(promotions)
+
+
+def _sibling_promotions(value: Any) -> list[dict[str, Any]]:
+    """Promotions kept beside the main sections list (online, plus, for-you)."""
+    if isinstance(value, dict) and (
+        isinstance(value.get("sections"), list)
+        or isinstance(value.get("promotions"), list)
+        or isinstance(value.get("coupons"), list)
+        or isinstance(value.get("items"), list)
+    ):
+        return flatten_promotions(value)
+    if (
+        isinstance(value, list)
+        and value
+        and isinstance(value[0], dict)
+        and any(
+            key in value[0]
+            for key in ("promotions", "coupons", "sections", "promotionId")
+        )
+    ):
+        return flatten_promotions(value)
+    return []
+
+
+def _dedupe_promotions(promotions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for row in promotions:
+        ident = str(row.get("id") or row.get("promotionId") or "")
+        if ident:
+            if ident in seen:
+                continue
+            seen.add(ident)
+        deduped.append(row)
+    return deduped
 
 
 def discount_text(discount: Any) -> str | None:
@@ -577,14 +645,17 @@ def parse_coupon_dt(value: str | None) -> datetime | None:
     return parsed
 
 
-# Types that cannot be activated with a bare POST /activation (pick a product,
-# leaflet offer, lottery). STANDARD / SEGMENTED stay click-to-activate.
+# Leaflet offers and games/lotteries are not one-tap coupons.
+# AssignablePromotion is still Aktywuj in the app (Dla Ciebie, Kupon Plus,
+# selected products) when groups is empty. A non-empty groups list is a
+# product picker and is rejected separately.
 _UNACTIVATABLE_TYPES = frozenset(
     {
-        "ASSIGNABLE",
-        "ASSIGNABLEPROMOTION",
         "OFFER",
         "PRIZE",
+        "GAME",
+        "LOTTERY",
+        "PURCHASELOTTERY",
     }
 )
 
@@ -593,6 +664,11 @@ _SESSION_CHANNELS = frozenset({"SSC", "SCO"})
 
 # Offers for stores other than the user's current/favorite shop.
 _OTHER_STORE_SECTIONS = frozenset({"OTHERSTORES", "VENDINGOTHERSTORES"})
+
+# Online shop tab. These coupons still have Aktywuj; the bag icon is only a link.
+_ONLINE_CHANNELS = frozenset(
+    {"ONLINE", "ONLINESHOP", "ECOMMERCE", "WEB", "WEBSHOP", "LIDLONLINE"}
+)
 
 
 def _promo_type_key(value: Any) -> str:
@@ -618,12 +694,19 @@ def _levels_locked(item: dict[str, Any]) -> bool:
     return False
 
 
-def _has_navigation(item: dict[str, Any]) -> bool:
+def _is_online_coupon(item: dict[str, Any], section: str | None) -> bool:
+    return bool(
+        _channel_keys(section, item.get("channel"), item.get("channels"))
+        & _ONLINE_CHANNELS
+    )
+
+
+def _has_navigation(item: dict[str, Any], section: str | None) -> bool:
+    """True for game/leaflet links, not for the online-shop bag icon."""
+    if _is_online_coupon(item, section):
+        return False
     url = item.get("navigationURL")
-    if isinstance(url, str) and url.strip():
-        return True
-    ecom = item.get("ecommerceNav")
-    return isinstance(ecom, dict) and any(ecom.values())
+    return isinstance(url, str) and bool(url.strip())
 
 
 def _channel_keys(*values: Any) -> set[str]:
@@ -671,12 +754,13 @@ class Coupon:
     has_navigation: bool = False
     session_only: bool = False
     other_store: bool = False
+    badge: str | None = None
     discount: str | None = None
     valid_from: str | None = None
     valid_to: str | None = None
 
     def can_activate(self) -> bool:
-        """True only for one-tap store coupons the API can activate."""
+        """True for one-tap coupons, including Dla Ciebie, Kupon Plus and Online."""
         if (
             not self.coupon_id
             or self.is_activated
@@ -718,6 +802,7 @@ class Coupon:
             "section": self.section,
             "type": self.promo_type,
             "channel": self.channel,
+            "badge": self.badge,
             "is_activated": self.is_activated,
             "is_processing": self.is_processing,
             "apologize": self.apologize,
@@ -741,6 +826,12 @@ class Coupon:
         promo_type = item.get("type")
         channel = item.get("channel")
         section = str(item["section"]) if item.get("section") else None
+        special = item.get("specialPromotion")
+        badge = None
+        if isinstance(special, dict):
+            tag = special.get("tag")
+            if isinstance(tag, str) and tag.strip():
+                badge = tag.strip()
         return cls(
             coupon_id=str(raw_id),
             promotion_id=str(item["promotionId"]) if item.get("promotionId") else None,
@@ -754,9 +845,10 @@ class Coupon:
             is_redeemed=_as_bool(item.get("isRedeemed")),
             is_locked=_levels_locked(item),
             needs_selection=_has_article_groups(item),
-            has_navigation=_has_navigation(item),
+            has_navigation=_has_navigation(item, section),
             session_only=_is_session_coupon(item, section),
             other_store=_is_other_store_coupon(item, section),
+            badge=badge,
             discount=discount_text(item.get("discount")),
             valid_from=validity_field(item.get("validity"), "start"),
             valid_to=validity_field(item.get("validity"), "end"),
