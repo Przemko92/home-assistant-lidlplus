@@ -61,6 +61,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: LidlPlusConfigEntry) ->
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     coordinator: LidlPlusCoordinator = entry.runtime_data
+    # Turning shopping lists on or off adds or removes the to-do entities.
+    if coordinator.shopping_lists_loaded != coordinator.shopping_lists_enabled:
+        hass.config_entries.async_schedule_reload(entry.entry_id)
+        return
     minutes = entry.options.get(CONF_SCAN_INTERVAL)
     coordinator.update_interval = (
         timedelta(minutes=int(minutes)) if minutes else DEFAULT_SCAN_INTERVAL

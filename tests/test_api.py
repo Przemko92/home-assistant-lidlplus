@@ -1,5 +1,9 @@
 """API payload helpers."""
 
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
 from custom_components.lidl_plus.api import (
     _as_segment_ids,
     api_accept_language,
@@ -7,6 +11,7 @@ from custom_components.lidl_plus.api import (
     as_ticket_list,
 )
 from custom_components.lidl_plus.const import COUPONS_BASE, PROFILE_BASE, TICKETS_BASE
+from custom_components.lidl_plus.exceptions import LidlPlusError
 from custom_components.lidl_plus.models import store_id_from_payloads
 
 
@@ -55,9 +60,12 @@ def test_ticket_detail_unwraps_data_envelope():
 def test_ticket_detail_keeps_outer_html_when_unwrapping():
     inner = {"id": "t1", "store": {"name": "Lidl"}, "itemsLine": []}
     html = "<span class='article' data-art-id='1'>x</span>"
-    assert as_ticket_detail({"data": inner, "htmlPrintedReceipt": html})[
-        "htmlPrintedReceipt"
-    ] == html
+    assert (
+        as_ticket_detail({"data": inner, "htmlPrintedReceipt": html})[
+            "htmlPrintedReceipt"
+        ]
+        == html
+    )
 
 
 def test_ticket_detail_keeps_outer_html_when_nested_html_is_null():
@@ -98,6 +106,7 @@ def test_country_is_in_api_paths():
 def test_segment_ids_from_list_and_objects():
     assert _as_segment_ids(["a", "b"]) == ["a", "b"]
     assert _as_segment_ids({"segmentIds": [{"id": "x"}, "y"]}) == ["x", "y"]
+    assert _as_segment_ids({"userSegments": [1, {"segmentId": "z"}]}) == ["1", "z"]
 
 
 def test_store_id_from_ticket_detail():
@@ -108,3 +117,55 @@ def test_store_id_from_ticket_detail():
         )
         == "PL1776"
     )
+    assert store_id_from_payloads({"storeCode": "PL0901"}) == "PL0901"
+
+
+async def test_activation_retries_assignable_with_article_selection():
+    from custom_components.lidl_plus.api import LidlPlusApi
+
+    api = LidlPlusApi(
+        AsyncMock(),
+        "access",
+        "refresh",
+        country="PL",
+        language="pl-PL",
+    )
+    bodies: list[dict] = []
+
+    async def fake_request(method, url, **kwargs):
+        del method, url
+        bodies.append(kwargs["json"])
+        if kwargs["json"] == {}:
+            raise LidlPlusError("http_404", status=404)
+        return None
+
+    with (
+        patch.object(api, "ensure_fresh_token", AsyncMock()),
+        patch.object(api, "_request_once", fake_request),
+    ):
+        await api.activate_promotion("coupon-1")
+
+    assert bodies == [{}, {"articleSelection": []}]
+
+
+async def test_activation_does_not_retry_other_errors():
+    from custom_components.lidl_plus.api import LidlPlusApi
+
+    api = LidlPlusApi(
+        AsyncMock(),
+        "access",
+        "refresh",
+        country="PL",
+        language="pl-PL",
+    )
+
+    async def fake_request(method, url, **kwargs):
+        del method, url, kwargs
+        raise LidlPlusError("http_500", status=500)
+
+    with (
+        patch.object(api, "ensure_fresh_token", AsyncMock()),
+        patch.object(api, "_request_once", fake_request),
+        pytest.raises(LidlPlusError, match="http_500"),
+    ):
+        await api.activate_promotion("coupon-1")

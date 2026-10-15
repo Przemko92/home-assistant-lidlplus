@@ -4,9 +4,12 @@
 class LidlPlusError(Exception):
     """Base error."""
 
-    def __init__(self, message: str = "", *, status: int | None = None) -> None:
+    def __init__(
+        self, message: str = "", *, status: int | None = None, body: str = ""
+    ) -> None:
         super().__init__(message)
         self.status = status
+        self.body = body
 
 
 class LidlPlusAuthError(LidlPlusError):

@@ -1,4 +1,4 @@
-"""Config flow for Lidl Plus — country, then Browser Companion."""
+"""Config flow for Lidl Plus — country, then Browser Companion or a pasted redirect."""
 
 from __future__ import annotations
 
@@ -21,6 +21,8 @@ from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
+    TextSelector,
+    TextSelectorConfig,
 )
 
 from .api import LidlPlusApi, fetch_gateway_countries
@@ -29,13 +31,18 @@ from .const import (
     COMPANION_WAIT,
     CONF_ACCESS_TOKEN,
     CONF_AUTO_COUPONS,
+    CONF_AUTO_SCRATCH,
     CONF_CARD_NUMBER,
     CONF_COUNTRY,
     CONF_LANGUAGE,
+    CONF_REDIRECT_URL,
     CONF_REFRESH_TOKEN,
     CONF_SCAN_INTERVAL,
+    CONF_SHOPPING_LISTS,
     DEFAULT_AUTO_COUPONS,
+    DEFAULT_AUTO_SCRATCH,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_SHOPPING_LISTS,
     DOMAIN,
 )
 from .countries import (
@@ -52,14 +59,15 @@ from .exceptions import LidlPlusAuthError, LidlPlusCannotConnect
 
 
 class LidlPlusConfigFlow(CompanionLoginFlow, ConfigFlow, domain=DOMAIN):
-    """Sign in through the Browser Companion add-on."""
+    """Sign in through Browser Companion (recommended) or a pasted redirect."""
 
     VERSION = 1
     companion_client_id = DOMAIN
 
     def __init__(self) -> None:
         self._login: OAuthLogin | None = None
-        self._reauth_entry: ConfigEntry | None = None
+        self._manual_login: OAuthLogin | None = None
+        self._existing_entry: ConfigEntry | None = None
         self._countries = dict(COUNTRIES)
         self._country: Country | None = None
         self._language: str | None = None
@@ -67,21 +75,19 @@ class LidlPlusConfigFlow(CompanionLoginFlow, ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        if not self.companion_supervisor_present():
-            return self.async_abort(reason="companion_requires_supervisor")
-        if self._reauth_entry:
-            self._country = get_country(self._reauth_entry.data.get(CONF_COUNTRY))
+        if self._existing_entry:
+            self._country = get_country(self._existing_entry.data.get(CONF_COUNTRY))
             self._language = str(
-                self._reauth_entry.data.get(CONF_LANGUAGE) or self._country.locale()
+                self._existing_entry.data.get(CONF_LANGUAGE) or self._country.locale()
             )
-            return await self.async_step_companion()
+            return await self.async_step_sign_in()
         await self._load_countries()
         if user_input is not None:
             self._country = get_country(str(user_input[CONF_COUNTRY]))
             if needs_language_step(self._country):
                 return await self.async_step_language()
             self._language = self._country.locale()
-            return await self.async_step_companion()
+            return await self.async_step_sign_in()
         default = default_country_code(getattr(self.hass.config, "country", None))
         if default not in self._countries:
             default = next(iter(self._countries))
@@ -103,7 +109,7 @@ class LidlPlusConfigFlow(CompanionLoginFlow, ConfigFlow, domain=DOMAIN):
         country = self._country or get_country(None)
         if user_input is not None:
             self._language = str(user_input[CONF_LANGUAGE])
-            return await self.async_step_companion()
+            return await self.async_step_sign_in()
         schema = vol.Schema(
             {
                 vol.Required(CONF_LANGUAGE, default=country.locale()): SelectSelector(
@@ -115,6 +121,61 @@ class LidlPlusConfigFlow(CompanionLoginFlow, ConfigFlow, domain=DOMAIN):
             }
         )
         return self.async_show_form(step_id="language", data_schema=schema)
+
+    async def async_step_sign_in(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        # Without Supervisor (HA Container / Core) the add-on cannot exist.
+        if not self.companion_supervisor_present():
+            return await self.async_step_manual()
+        return self.async_show_menu(
+            step_id="sign_in", menu_options=["companion", "manual"]
+        )
+
+    async def async_step_manual(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Sign in in any browser, then paste the com.lidlplus.app:// redirect.
+
+        The PKCE verifier lives in this flow, so the pasted code only works
+        with the link shown on this form.
+        """
+        if self._manual_login is None:
+            country = self._country or get_country(None)
+            self._manual_login = OAuthLogin(
+                async_get_clientsession(self.hass),
+                country=country.code,
+                language=self._language or country.locale(),
+            )
+        auth_url = self._manual_login.prepare()
+
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                code = auth_code_from_redirect(user_input[CONF_REDIRECT_URL])
+                assert self._manual_login.verifier is not None
+                tokens = await self._manual_login.exchange_code(
+                    code, self._manual_login.verifier
+                )
+            except LidlPlusCannotConnect:
+                errors["base"] = "cannot_connect"
+            except LidlPlusAuthError:
+                errors["base"] = "invalid_code"
+            else:
+                return await self._async_finish(tokens)
+
+        return self.async_show_form(
+            step_id="manual",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_REDIRECT_URL): TextSelector(
+                        TextSelectorConfig(multiline=True)
+                    )
+                }
+            ),
+            description_placeholders={"auth_url": auth_url},
+            errors=errors,
+        )
 
     async def _load_countries(self) -> None:
         session = async_get_clientsession(self.hass)
@@ -154,9 +215,16 @@ class LidlPlusConfigFlow(CompanionLoginFlow, ConfigFlow, domain=DOMAIN):
             self._login = None
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
-        self._reauth_entry = self.hass.config_entries.async_get_entry(
+        self._existing_entry = self.hass.config_entries.async_get_entry(
             self.context["entry_id"]
         )
+        return await self.async_step_user()
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Sign in again on demand, keeping the entry and its entities."""
+        self._existing_entry = self._get_reconfigure_entry()
         return await self.async_step_user()
 
     async def _async_finish(self, tokens: dict[str, str]) -> ConfigFlowResult:
@@ -187,10 +255,10 @@ class LidlPlusConfigFlow(CompanionLoginFlow, ConfigFlow, domain=DOMAIN):
             CONF_LANGUAGE: language,
             CONF_CARD_NUMBER: card,
         }
-        if self._reauth_entry:
-            if self._reauth_entry.unique_id not in (None, unique_id):
+        if self._existing_entry:
+            if self._existing_entry.unique_id not in (None, unique_id):
                 return self.async_abort(reason="wrong_account")
-            return self.async_update_reload_and_abort(self._reauth_entry, data=data)
+            return self.async_update_reload_and_abort(self._existing_entry, data=data)
         self._abort_if_unique_id_configured()
 
         return self.async_create_entry(
@@ -198,6 +266,8 @@ class LidlPlusConfigFlow(CompanionLoginFlow, ConfigFlow, domain=DOMAIN):
             data=data,
             options={
                 CONF_AUTO_COUPONS: DEFAULT_AUTO_COUPONS,
+                CONF_AUTO_SCRATCH: DEFAULT_AUTO_SCRATCH,
+                CONF_SHOPPING_LISTS: DEFAULT_SHOPPING_LISTS,
                 CONF_SCAN_INTERVAL: int(DEFAULT_SCAN_INTERVAL.total_seconds() // 60),
             },
         )
@@ -239,6 +309,14 @@ class LidlPlusOptionsFlow(OptionsFlow):
                 vol.Required(
                     CONF_AUTO_COUPONS,
                     default=options.get(CONF_AUTO_COUPONS, DEFAULT_AUTO_COUPONS),
+                ): bool,
+                vol.Required(
+                    CONF_AUTO_SCRATCH,
+                    default=options.get(CONF_AUTO_SCRATCH, DEFAULT_AUTO_SCRATCH),
+                ): bool,
+                vol.Required(
+                    CONF_SHOPPING_LISTS,
+                    default=options.get(CONF_SHOPPING_LISTS, DEFAULT_SHOPPING_LISTS),
                 ): bool,
             }
         )

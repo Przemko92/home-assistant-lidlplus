@@ -18,7 +18,12 @@ async def async_setup_entry(
     entry: LidlPlusConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    async_add_entities([LidlPlusActivateCouponsButton(entry.runtime_data)])
+    async_add_entities(
+        [
+            LidlPlusActivateCouponsButton(entry.runtime_data),
+            LidlPlusScratchButton(entry.runtime_data),
+        ]
+    )
 
 
 class LidlPlusActivateCouponsButton(LidlPlusEntity, ButtonEntity):
@@ -40,3 +45,22 @@ class LidlPlusActivateCouponsButton(LidlPlusEntity, ButtonEntity):
 
     async def async_press(self) -> None:
         await self.coordinator.async_activate_all()
+
+
+class LidlPlusScratchButton(LidlPlusEntity, ButtonEntity):
+    """Scratches every waiting scratch card (zdrapka)."""
+
+    _attr_translation_key = "scratch_cards"
+
+    def __init__(self, coordinator: LidlPlusCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{self._device_id}_scratch_cards"
+
+    @property
+    def available(self) -> bool:
+        if not super().available or not self.coordinator.data:
+            return False
+        return bool(self.coordinator.data.scratch_cards)
+
+    async def async_press(self) -> None:
+        await self.coordinator.async_scratch_all()

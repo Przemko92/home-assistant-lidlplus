@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Lidl Plus",
-        "description": "Wybierz kraj konta Lidl Plus. Logowanie idzie przez dodatek Browser Companion (Chromium w pasku bocznym).",
+        "description": "Wybierz kraj konta Lidl Plus.",
         "data": {
           "country": "Kraj"
         }
@@ -13,6 +13,21 @@
         "description": "Ten kraj ma więcej niż jeden język Lidl Plus.",
         "data": {
           "language": "Język"
+        }
+      },
+      "sign_in": {
+        "title": "Logowanie do Lidl Plus",
+        "description": "Wybierz sposób logowania. Rekomendowany jest Browser Companion; ręczny kod autoryzacji to opcjonalna alternatywa działająca w każdej przeglądarce.",
+        "menu_options": {
+          "companion": "Browser Companion (rekomendowane)",
+          "manual": "Ręczny kod autoryzacji (opcjonalnie): zaloguj się w przeglądarce i wklej przekierowanie"
+        }
+      },
+      "manual": {
+        "title": "Logowanie do Lidl Plus",
+        "description": "1. Na komputerze otwórz link: [accounts.lidl.com]({auth_url})\n2. Wpisz e-mail albo numer telefonu. **Przed ostatnim krokiem** (hasło albo kod weryfikacyjny) naciśnij F12 i otwórz zakładkę **Konsola**.\n3. Dokończ logowanie. Strona nigdzie nie przekieruje — tak ma być.\n4. Skopiuj z konsoli linię `Failed to launch 'com.lidlplus.app://callback?code=…'` (albo sam adres `com.lidlplus.app://…`) i wklej poniżej. Jeśli konsola jest pusta, użyj zakładki **Sieć**: ostatnie żądanie ma nagłówek `Location: com.lidlplus.app://…`.\n\nKod jest ważny krótko, więc wklej go od razu. Jeśli zostanie odrzucony, zaloguj się ponownie tym samym linkiem.",
+        "data": {
+          "redirect_url": "Adres com.lidlplus.app:// albo kod"
         }
       },
       "companion": {
@@ -27,7 +42,8 @@
     "error": {
       "cannot_connect": "Nie udało się połączyć z serwerami Lidl Plus.",
       "invalid_token": "Token odrzucony. Zaloguj się ponownie.",
-      "companion_unavailable": "Browser Companion nie przechwycił logowania. Uruchom dodatek i spróbuj ponownie."
+      "companion_unavailable": "Browser Companion nie przechwycił logowania. Uruchom dodatek i spróbuj ponownie.",
+      "invalid_code": "Brak kodu, kod wygasł albo został już użyty. Zaloguj się ponownie przez link i od razu wklej nowy adres com.lidlplus.app://."
     },
     "abort": {
       "already_configured": "Ta karta lojalnościowa jest już skonfigurowana.",
@@ -35,8 +51,8 @@
       "wrong_account": "Ten token należy do innej karty lojalnościowej.",
       "cannot_connect": "Nie udało się połączyć z serwerami Lidl Plus.",
       "invalid_token": "Przechwycone logowanie zostało odrzucone. Spróbuj ponownie.",
-      "companion_requires_supervisor": "Lidl Plus wymaga Home Assistant OS albo Supervised z dodatkiem Browser Companion.",
-      "companion_not_running": "Uruchom dodatek Browser Companion, a potem dodaj tę integrację ponownie."
+      "companion_not_running": "Uruchom dodatek Browser Companion, a potem dodaj tę integrację ponownie.",
+      "reconfigure_successful": "Zalogowano ponownie. Integracja została przeładowana."
     },
     "progress": {
       "companion_wait": "Otwórz Browser Companion w nowym oknie:\n\n[{companion_url}]({companion_href})\n\nZaloguj się tam (captcha + MFA). Ten ekran zaktualizuje się po przechwyceniu przekierowania."
@@ -48,7 +64,9 @@
         "title": "Opcje Lidl Plus",
         "data": {
           "scan_interval": "Interwał odświeżania",
-          "auto_coupons": "Automatycznie aktywuj kupony"
+          "auto_coupons": "Automatycznie aktywuj kupony",
+          "auto_scratch": "Automatycznie odkrywaj zdrapki",
+          "shopping_lists": "Synchronizuj listy zakupów z aplikacji (listy zadań)"
         }
       }
     }
@@ -72,16 +90,114 @@
       },
       "coupons_upcoming": {
         "name": "Kupony przyszłe"
+      },
+      "scratch_cards": {
+        "name": "Zdrapki"
+      },
+      "gift_boxes": {
+        "name": "Prezenty do otwarcia"
+      },
+      "coupon_plus": {
+        "name": "Kupon Plus"
+      },
+      "stamp_card": {
+        "name": "Karta z naklejkami"
+      },
+      "deposits": {
+        "name": "Kaucje do wykorzystania"
+      },
+      "alerts": {
+        "name": "Nieprzeczytane wiadomości"
+      },
+      "store_hours": {
+        "name": "Godziny otwarcia sklepu"
       }
     },
     "button": {
       "coupons_activate": {
         "name": "Aktywuj kupony"
+      },
+      "scratch_cards": {
+        "name": "Odkryj zdrapki"
       }
     },
     "switch": {
       "auto_coupons": {
         "name": "Auto kupony"
+      },
+      "auto_scratch": {
+        "name": "Auto zdrapki"
+      }
+    },
+    "event": {
+      "new_coupon": {
+        "name": "Nowe kupony",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "new": "Nowe"
+            }
+          }
+        }
+      },
+      "new_scratch_card": {
+        "name": "Nowa zdrapka",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "new": "Nowe"
+            }
+          }
+        }
+      },
+      "new_gift": {
+        "name": "Nowy prezent",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "new": "Nowe"
+            }
+          }
+        }
+      },
+      "new_coupon_plus": {
+        "name": "Nowy Kupon Plus",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "new": "Nowe"
+            }
+          }
+        }
+      },
+      "new_stamp_card": {
+        "name": "Nowa karta z naklejkami",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "new": "Nowe"
+            }
+          }
+        }
+      },
+      "new_scratch_result": {
+        "name": "Zdrapka odkryta",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "new": "Nowe"
+            }
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "store_open": {
+        "name": "Sklep otwarty",
+        "state": {
+          "on": "Otwarty",
+          "off": "Zamknięty"
+        }
       }
     }
   }

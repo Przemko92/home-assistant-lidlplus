@@ -34,6 +34,13 @@ async def async_setup_entry(
             LidlPlusCouponsSensor(coordinator),
             LidlPlusCouponsAvailableSensor(coordinator),
             LidlPlusCouponsUpcomingSensor(coordinator),
+            LidlPlusScratchCardsSensor(coordinator),
+            LidlPlusGiftBoxesSensor(coordinator),
+            LidlPlusCouponPlusSensor(coordinator),
+            LidlPlusStampCardSensor(coordinator),
+            LidlPlusDepositsSensor(coordinator),
+            LidlPlusAlertsSensor(coordinator),
+            LidlPlusStoreHoursSensor(coordinator),
         ]
     )
 
@@ -227,4 +234,199 @@ class LidlPlusCouponsUpcomingSensor(LidlPlusEntity, SensorEntity):
             "offer_ids": [coupon.coupon_id for coupon in upcoming if coupon.coupon_id],
             "next_valid_from": upcoming[0].valid_from if upcoming else None,
             "coupons": [coupon.as_dict() for coupon in upcoming],
+        }
+
+
+class LidlPlusScratchCardsSensor(LidlPlusEntity, SensorEntity):
+    """Scratch cards (zdrapki) waiting to be scratched in the app."""
+
+    _attr_translation_key = "scratch_cards"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: LidlPlusCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{self._device_id}_scratch_cards"
+
+    @property
+    def native_value(self) -> int:
+        data = self.coordinator.data
+        return len(data.scratch_cards) if data else 0
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data
+        if not data:
+            return {}
+        cards = sorted(data.scratch_cards, key=lambda card: card.expires or "")
+        return {
+            "next_expiry": cards[0].expires if cards else None,
+            "cards": [card.as_dict() for card in cards],
+        }
+
+
+class LidlPlusGiftBoxesSensor(LidlPlusEntity, SensorEntity):
+    """Gift boxes (secret boxes / daily deals) to open in the app."""
+
+    _attr_translation_key = "gift_boxes"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: LidlPlusCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{self._device_id}_gift_boxes"
+
+    @property
+    def native_value(self) -> int:
+        data = self.coordinator.data
+        return len(data.gift_boxes) if data else 0
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data
+        return {"boxes": [box.as_dict() for box in data.gift_boxes]} if data else {}
+
+
+class LidlPlusCouponPlusSensor(LidlPlusEntity, SensorEntity):
+    """Kupon Plus: how much has been spent towards the target."""
+
+    _attr_translation_key = "coupon_plus"
+    _attr_device_class = SensorDeviceClass.MONETARY
+
+    def __init__(self, coordinator: LidlPlusCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{self._device_id}_coupon_plus"
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        return self.coordinator.currency
+
+    @property
+    def native_value(self) -> float | None:
+        data = self.coordinator.data
+        plus = data.coupon_plus if data else None
+        return plus.reached if plus else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data
+        plus = data.coupon_plus if data else None
+        return plus.as_dict() if plus else {}
+
+
+class LidlPlusStampCardSensor(LidlPlusEntity, SensorEntity):
+    """Stamps collected on the current stamp card."""
+
+    _attr_translation_key = "stamp_card"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: LidlPlusCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{self._device_id}_stamp_card"
+
+    @property
+    def native_value(self) -> float | None:
+        data = self.coordinator.data
+        card = data.stamp_cards[0] if data and data.stamp_cards else None
+        return card.units if card else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data
+        if not data or not data.stamp_cards:
+            return {}
+        return {
+            **data.stamp_cards[0].as_dict(),
+            "cards": [card.as_dict() for card in data.stamp_cards],
+        }
+
+
+class LidlPlusDepositsSensor(LidlPlusEntity, SensorEntity):
+    """Bottle-deposit money ready to use (system kaucyjny)."""
+
+    _attr_translation_key = "deposits"
+    _attr_device_class = SensorDeviceClass.MONETARY
+
+    def __init__(self, coordinator: LidlPlusCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{self._device_id}_deposits"
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        return self.coordinator.currency
+
+    @property
+    def native_value(self) -> float | None:
+        data = self.coordinator.data
+        return data.deposits.available if data and data.deposits else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data
+        deposits = data.deposits if data else None
+        if not deposits:
+            return {}
+        return {
+            "pending": deposits.pending,
+            "automatic_redemption": deposits.automatic,
+            "deposits": deposits.items,
+        }
+
+
+class LidlPlusAlertsSensor(LidlPlusEntity, SensorEntity):
+    """Unread messages in the app's inbox."""
+
+    _attr_translation_key = "alerts"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: LidlPlusCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{self._device_id}_alerts"
+
+    @property
+    def native_value(self) -> int | None:
+        data = self.coordinator.data
+        return data.alerts_unread if data else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data
+        return {"home_message": data.home_message} if data else {}
+
+
+class LidlPlusStoreHoursSensor(LidlPlusEntity, SensorEntity):
+    """Today's opening hours of the store chosen in the app (else the latest receipt's)."""
+
+    _attr_translation_key = "store_hours"
+
+    def __init__(self, coordinator: LidlPlusCoordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{self._device_id}_store_hours"
+
+    @property
+    def native_value(self) -> str | None:
+        data = self.coordinator.data
+        schedule = data.store_schedule if data else None
+        if not schedule or self._closed(schedule):
+            return None
+        return schedule.today
+
+    @staticmethod
+    def _closed(schedule: Any) -> bool:
+        return bool(
+            schedule.permanently_closed or schedule.temporarily_closed or not schedule.hours
+        )
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        data = self.coordinator.data
+        schedule = data.store_schedule if data else None
+        if not schedule:
+            return {}
+        return {
+            "store_id": schedule.store_id,
+            "favorite_store": schedule.favorite,
+            "name": schedule.name,
+            "address": schedule.full_address,
+            "postal_code": schedule.postal_code,
+            "closed_today": self._closed(schedule),
+            "week": schedule.week,
         }

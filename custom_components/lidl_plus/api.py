@@ -13,15 +13,21 @@ import aiohttp
 from .auth import jwt_payload, refresh_tokens
 from .const import (
     ACTION_LOCATION,
+    ALERTS_BASE,
     API_USER_AGENT,
     APP_PACKAGE,
     APP_VERSION,
     COUNTRIES_URL,
     COUPONS_BASE,
+    DEPOSITS_BASE,
+    HOME_BASE,
+    LOTTERY_BASE,
     OPERATING_SYSTEM,
     OS_VERSION,
     PROFILE_BASE,
     SEGMENTS_BASE,
+    SHOPPING_LIST_BASE,
+    STORES_BASE,
     TICKETS_BASE,
 )
 from .exceptions import LidlPlusAuthError, LidlPlusCannotConnect, LidlPlusError
@@ -79,7 +85,7 @@ def api_accept_language(language: str, country: str = "") -> str:
     if len(primary) >= 2:
         return primary[:2]
     fallback = (country or "en").strip().lower()
-    return (fallback[:2] if fallback else "en")
+    return fallback[:2] if fallback else "en"
 
 
 def _filled(value: Any) -> bool:
@@ -121,7 +127,17 @@ def _as_segment_ids(payload: Any) -> list[str]:
     """Normalize the user-segments payload into a list of id strings."""
     values: Any = payload
     if isinstance(payload, dict):
-        for key in ("segmentIds", "segments", "ids", "data", "items"):
+        for key in (
+            "segmentIds",
+            "segments",
+            "userSegments",
+            "userSegmentIds",
+            "ids",
+            "data",
+            "items",
+            "values",
+            "results",
+        ):
             nested = payload.get(key)
             if nested is not None:
                 values = nested
@@ -267,7 +283,7 @@ class LidlPlusApi:
                         "API %s %s: %s", response.method, response.url, body[:500]
                     )
                     raise LidlPlusError(
-                        f"http_{response.status}", status=response.status
+                        f"http_{response.status}", status=response.status, body=body
                     )
                 if force_json:
                     return _loads_json(await response.text())
@@ -330,7 +346,8 @@ class LidlPlusApi:
             headers["Store-Id"] = store_id
         segments = await self.user_segments()
         if segments:
-            headers["Segment-Ids"] = ",".join(segments)
+            # Personalized coupons (Dla Ciebie) are omitted without this header.
+            headers["Segment-ids"] = ",".join(segments)
         result = await self.request(
             "GET",
             f"{COUPONS_BASE}/v4/promotionslist",
@@ -339,15 +356,165 @@ class LidlPlusApi:
         return result if isinstance(result, dict) else {"sections": result or []}
 
     async def activate_promotion(self, promotion_id: str) -> Any:
-        return await self.request(
+        url = f"{COUPONS_BASE}/v2/promotions/{promotion_id}/activation"
+        headers = {
+            "Country": self.country,
+            "Action-Location": ACTION_LOCATION,
+        }
+        try:
+            return await self.request("POST", url, json={}, headers=headers)
+        except LidlPlusError as err:
+            # Assignable coupons (Dla Ciebie, Kupon Plus, some store offers)
+            # reject an empty body and activate with an empty article selection.
+            if err.status not in {400, 404, 422}:
+                raise
+            _LOGGER.debug(
+                "Empty activation body failed for %s (%s); retrying",
+                promotion_id,
+                err,
+            )
+            return await self.request(
+                "POST",
+                url,
+                json={"articleSelection": []},
+                headers=headers,
+            )
+
+
+    async def _common_headers(self) -> dict[str, str]:
+        headers = {"Country": self.country}
+        segments = await self.user_segments()
+        if segments:
+            headers["Segment-Ids"] = ",".join(segments)
+        return headers
+
+    async def home_config(self) -> dict[str, Any]:
+        """Home-screen layouts: `configurations[].id` and their module names."""
+        result = await self.request(
+            "GET",
+            f"{HOME_BASE}/configuration/v1/config/{self.country}",
+            headers=await self._common_headers(),
+        )
+        return result if isinstance(result, dict) else {}
+
+    async def home(
+        self, home_id: str, modules: list[str], store_id: str | None
+    ) -> dict[str, Any]:
+        """The logged-in home screen, one key per requested module."""
+        result = await self.request(
             "POST",
-            f"{COUPONS_BASE}/v2/promotions/{promotion_id}/activation",
-            json={},
-            headers={
-                "Country": self.country,
-                "Action-Location": ACTION_LOCATION,
+            f"{HOME_BASE}/api/v2/{self.country}/home/logged",
+            headers={**await self._common_headers(), "homeId": home_id},
+            json={
+                "storeId": store_id or "",
+                "modules": [
+                    {"moduleName": name, "aggregateVersion": 1} for name in modules
+                ],
             },
         )
+        return result if isinstance(result, dict) else {}
+
+    async def deposits(self) -> Any:
+        return await self.request(
+            "GET",
+            f"{DEPOSITS_BASE}/v1/{self.country}/deposits",
+            headers={"Country": self.country},
+        )
+
+    async def store_schedule(self, store_id: str, day: str) -> Any:
+        """Opening hours of a store on `day` (YYYY-MM-DD); ids look like PL2338."""
+        if not store_id.upper().startswith(self.country):
+            store_id = f"{self.country}{store_id}"
+        return await self.request(
+            "GET",
+            f"{STORES_BASE}/v3/schedule/{store_id}",
+            params={"date": day},
+            headers={"Country": self.country},
+        )
+
+    async def favorite_store(self) -> str | None:
+        """Store chosen in the app ("Twój Lidl"), e.g. PL2338; None when not set."""
+        result = await self.request(
+            "GET",
+            f"{STORES_BASE}/v1/users/me/favorite/{self.country}",
+            headers={"Country": self.country},
+        )
+        key = result.get("storeKey") if isinstance(result, dict) else None
+        return str(key) if key else None
+
+    async def store_details(self, store_key: str) -> dict[str, Any] | None:
+        """Name, address and weekly opening hours of a store."""
+        result = await self.request(
+            "GET",
+            f"{STORES_BASE}/v5/{self.country}/details",
+            headers={"Country": self.country, "storesIds": store_key},
+        )
+        if isinstance(result, list):
+            return next(
+                (item for item in result if isinstance(item, dict)), None
+            )
+        return result if isinstance(result, dict) else None
+
+    async def lottery_detail(self, lottery_id: str) -> dict[str, Any] | None:
+        """A scratch card with its prize (`prize.type`: Coupon / None …)."""
+        result = await self.request(
+            "GET", f"{LOTTERY_BASE}/v2/{self.country}/lotteries/{lottery_id}"
+        )
+        return result if isinstance(result, dict) else None
+
+    async def redeem_lottery(self, lottery_id: str) -> None:
+        """Mark a scratch card as scratched, like finishing it in the app."""
+        await self.request(
+            "PATCH", f"{LOTTERY_BASE}/v2/{self.country}/lotteries/{lottery_id}/redeemed"
+        )
+
+    async def shopping_lists(self) -> list[dict[str, Any]]:
+        """Lists of the app's shopping list: id, title, eTag, itemsCount."""
+        result = await self.request(
+            "GET",
+            f"{SHOPPING_LIST_BASE}/v4/lists",
+            headers={"Country": self.country},
+        )
+        lists = result.get("lists") if isinstance(result, dict) else None
+        return [item for item in lists or [] if isinstance(item, dict)]
+
+    async def sync_shopping_list(
+        self,
+        list_id: str,
+        items: list[dict[str, Any]],
+        *,
+        item_ids: list[str] | None = None,
+        deleted: list[dict[str, str]] | None = None,
+        store_id: str | None = None,
+    ) -> dict[str, Any]:
+        """The app's sync call: send changed items, get the whole list back.
+
+        `item_ids` is the list's full order after the change (the server
+        requires it); `deleted` lists removed items as {"itemId", "lastUpdate"}.
+        A fresh app sends an empty order and no items to download a list it has
+        never seen.
+        """
+        body: dict[str, Any] = {
+            "items": items,
+            "list": {"itemIds": item_ids or [], "deletedItems": deleted or []},
+        }
+        result = await self.request(
+            "PATCH",
+            f"{SHOPPING_LIST_BASE}/v5/lists/{list_id}",
+            json=body,
+            # The server requires the store (prices and products are per store).
+            headers={"Country": self.country, "Store-Id": store_id or ""},
+        )
+        return result if isinstance(result, dict) else {}
+
+    async def alerts_unread(self) -> int | None:
+        result = await self.request(
+            "GET",
+            f"{ALERTS_BASE}/v2/{self.country}/alerts/unread",
+            headers={"Country": self.country},
+        )
+        count = result.get("count") if isinstance(result, dict) else result
+        return int(count) if isinstance(count, (int, float)) else None
 
 
 async def fetch_gateway_countries(session: aiohttp.ClientSession) -> Any:

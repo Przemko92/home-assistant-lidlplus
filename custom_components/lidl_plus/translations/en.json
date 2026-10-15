@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Lidl Plus",
-        "description": "Choose the country of your Lidl Plus account. Sign-in uses the Browser Companion add-on (Chromium in the sidebar).",
+        "description": "Choose the country of your Lidl Plus account.",
         "data": {
           "country": "Country"
         }
@@ -13,6 +13,21 @@
         "description": "This country has more than one Lidl Plus language.",
         "data": {
           "language": "Language"
+        }
+      },
+      "sign_in": {
+        "title": "Lidl Plus sign-in",
+        "description": "Choose how to sign in. Browser Companion is recommended; the manual auth code is an optional alternative that works in any browser.",
+        "menu_options": {
+          "companion": "Browser Companion (recommended)",
+          "manual": "Manual auth code (optional): sign in in your browser and paste the redirect"
+        }
+      },
+      "manual": {
+        "title": "Sign in to Lidl Plus",
+        "description": "1. On a computer, open this link: [accounts.lidl.com]({auth_url})\n2. Enter your e-mail or phone number. **Before the last step** (password or verification code), press F12 and open the **Console** tab.\n3. Finish signing in. The page will not redirect anywhere — that is expected.\n4. Copy the console line `Failed to launch 'com.lidlplus.app://callback?code=…'` (or just the `com.lidlplus.app://…` address) and paste it below. If the console is empty, use the **Network** tab: the last request has a `Location: com.lidlplus.app://…` header.\n\nThe code is valid only briefly, so paste it right away. If it is rejected, sign in again with the same link.",
+        "data": {
+          "redirect_url": "com.lidlplus.app:// address or code"
         }
       },
       "companion": {
@@ -27,7 +42,8 @@
     "error": {
       "cannot_connect": "Could not reach Lidl Plus servers.",
       "invalid_token": "Token was rejected. Sign in again.",
-      "companion_unavailable": "Browser Companion did not capture the login. Start the add-on and try again."
+      "companion_unavailable": "Browser Companion did not capture the login. Start the add-on and try again.",
+      "invalid_code": "The code is missing, expired or already used. Sign in again with the link and paste the new com.lidlplus.app:// address right away."
     },
     "abort": {
       "already_configured": "This loyalty card is already configured.",
@@ -35,8 +51,8 @@
       "wrong_account": "This token belongs to a different loyalty card.",
       "cannot_connect": "Could not reach Lidl Plus servers.",
       "invalid_token": "The captured login was rejected. Try again.",
-      "companion_requires_supervisor": "Lidl Plus needs Home Assistant OS or Supervised with the Browser Companion add-on.",
-      "companion_not_running": "Start the Browser Companion add-on, then add this integration again."
+      "companion_not_running": "Start the Browser Companion add-on, then add this integration again.",
+      "reconfigure_successful": "Signed in again. The integration has been reloaded."
     },
     "progress": {
       "companion_wait": "Open Browser Companion in a new window:\n\n[{companion_url}]({companion_href})\n\nSign in there (captcha + MFA). This screen updates when the redirect is captured."
@@ -48,7 +64,9 @@
         "title": "Lidl Plus options",
         "data": {
           "scan_interval": "Update interval",
-          "auto_coupons": "Automatically activate coupons"
+          "auto_coupons": "Automatically activate coupons",
+          "auto_scratch": "Scratch scratch cards automatically",
+          "shopping_lists": "Sync the app's shopping lists (to-do lists)"
         }
       }
     }
@@ -72,16 +90,114 @@
       },
       "coupons_upcoming": {
         "name": "Upcoming coupons"
+      },
+      "scratch_cards": {
+        "name": "Scratch cards"
+      },
+      "gift_boxes": {
+        "name": "Gift boxes"
+      },
+      "coupon_plus": {
+        "name": "Kupon Plus"
+      },
+      "stamp_card": {
+        "name": "Stamp card"
+      },
+      "deposits": {
+        "name": "Deposit refunds"
+      },
+      "alerts": {
+        "name": "Unread messages"
+      },
+      "store_hours": {
+        "name": "Store opening hours"
       }
     },
     "button": {
       "coupons_activate": {
         "name": "Activate coupons"
+      },
+      "scratch_cards": {
+        "name": "Scratch cards"
       }
     },
     "switch": {
       "auto_coupons": {
         "name": "Auto coupons"
+      },
+      "auto_scratch": {
+        "name": "Auto scratch cards"
+      }
+    },
+    "event": {
+      "new_coupon": {
+        "name": "New coupons",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "new": "New"
+            }
+          }
+        }
+      },
+      "new_scratch_card": {
+        "name": "New scratch card",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "new": "New"
+            }
+          }
+        }
+      },
+      "new_gift": {
+        "name": "New gift box",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "new": "New"
+            }
+          }
+        }
+      },
+      "new_coupon_plus": {
+        "name": "New Kupon Plus",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "new": "New"
+            }
+          }
+        }
+      },
+      "new_stamp_card": {
+        "name": "New stamp card",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "new": "New"
+            }
+          }
+        }
+      },
+      "new_scratch_result": {
+        "name": "Scratch card result",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "new": "New"
+            }
+          }
+        }
+      }
+    },
+    "binary_sensor": {
+      "store_open": {
+        "name": "Store open",
+        "state": {
+          "on": "Open",
+          "off": "Closed"
+        }
       }
     }
   }

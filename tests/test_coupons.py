@@ -90,6 +90,28 @@ def test_ssc_section_from_list_is_not_activatable():
     assert coupon.can_activate() is False
 
 
+def test_flatten_promotions_keeps_nested_and_sibling_categories():
+    payload = {
+        "sections": [
+            {
+                "name": "AllStores",
+                "promotions": [_promo("store")],
+                "subsections": [
+                    {"name": "ForYou", "promotions": [_promo("foryou")]},
+                ],
+            }
+        ],
+        "online": {
+            "sections": [{"name": "OnlineShop", "promotions": [_promo("online")]}]
+        },
+        "couponPlus": {"promotions": [_promo("plus")]},
+    }
+    items = flatten_promotions(payload)
+    assert [item["id"] for item in items] == ["store", "foryou", "online", "plus"]
+    assert items[1]["section"] == "ForYou"
+    assert items[2]["section"] == "OnlineShop"
+
+
 def test_flatten_promotions_unwraps_data_and_nested_promotion():
     payload = {
         "data": {
@@ -193,8 +215,64 @@ async def test_apologize_coupons_are_not_activatable(coordinator_factory):
     assert coupons[0].can_activate() is False
 
 
-def test_assignable_coupons_are_not_activatable():
-    coupon = Coupon.from_payload(_promo("pick") | {"type": "Assignable"})
+def test_assignable_without_groups_is_activatable():
+    coupon = Coupon.from_payload(
+        _promo("pick") | {"type": "AssignablePromotion", "groups": []}
+    )
+    assert coupon is not None
+    assert coupon.can_activate() is True
+
+
+def test_for_you_and_coupon_plus_badges_are_activatable():
+    for_you = Coupon.from_payload(
+        _promo("pepper", title="Papryka słodka")
+        | {
+            "type": "AssignablePromotion",
+            "channel": "Store",
+            "groups": [],
+            "specialPromotion": {"tag": "Dla Ciebie"},
+        }
+    )
+    plus = Coupon.from_payload(
+        _promo("bread", title="Bochen orkiszowy")
+        | {
+            "type": "AssignablePromotion",
+            "channel": "Store",
+            "groups": [],
+            "specialPromotion": {"tag": "Kupon Plus"},
+        }
+    )
+    assert for_you is not None and plus is not None
+    assert for_you.can_activate() is True
+    assert for_you.badge == "Dla Ciebie"
+    assert plus.can_activate() is True
+    assert plus.badge == "Kupon Plus"
+
+
+def test_online_shop_link_does_not_block_activation():
+    coupon = Coupon.from_payload(
+        _promo("bike", title="Wybrane rowery elektryczne")
+        | {
+            "type": "Standard",
+            "section": "OnlineShop",
+            "channel": "Online",
+            "navigationURL": "https://www.lidl.pl/p/rower",
+            "ecommerceNav": {"url": "https://www.lidl.pl/p/rower"},
+        }
+    )
+    assert coupon is not None
+    assert coupon.can_activate() is True
+
+
+def test_locked_online_coupon_is_not_activatable():
+    coupon = Coupon.from_payload(
+        _promo("locked")
+        | {
+            "type": "Standard",
+            "channel": "Online",
+            "levels": {"isLocked": True},
+        }
+    )
     assert coupon is not None
     assert coupon.can_activate() is False
 
@@ -204,7 +282,9 @@ def test_group_coupons_are_not_activatable():
         _promo("pick")
         | {
             "type": "Standard",
-            "groups": [{"id": "g1", "title": "Wybierz produkt", "articles": [{"id": "1"}]}],
+            "groups": [
+                {"id": "g1", "title": "Wybierz produkt", "articles": [{"id": "1"}]}
+            ],
         }
     )
     assert coupon is not None

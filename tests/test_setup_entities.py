@@ -61,6 +61,90 @@ class FullFakeApi:
     async def activate_promotion(self, promotion_id: str):
         return None
 
+    home_payload: dict | None = None
+    deposits_payload: dict | None = None
+    unread: int | None = 0
+
+    async def home_config(self):
+        return {"configurations": [{"id": "mainHome", "modules": ["purchaseLottery", "openGift"]}]}
+
+    async def home(self, home_id, modules, store_id):
+        return self.home_payload or {}
+
+    async def deposits(self):
+        return self.deposits_payload
+
+    async def alerts_unread(self):
+        return self.unread
+
+    schedule_payload: dict | None = None
+
+    async def store_schedule(self, store_id, day):
+        return self.schedule_payload
+
+    favorite: str | None = None
+    details_payload: dict | None = None
+
+    async def favorite_store(self):
+        return self.favorite
+
+    async def store_details(self, store_key):
+        return self.details_payload
+
+    lists: list | None = None
+    versioned = False
+    list_items: dict | None = None
+    sync_calls: list | None = None
+
+    async def shopping_lists(self):
+        return self.lists or []
+
+    async def sync_shopping_list(
+        self, list_id, items, *, item_ids=None, deleted=None, store_id=None
+    ):
+        """Behaves like the app's sync: merge changed items, apply order and deletes."""
+        if self.sync_calls is None:
+            self.sync_calls = []
+        self.sync_calls.append((list_id, items, item_ids, deleted))
+        store = self.list_items.setdefault(list_id, {})
+        for item in items:
+            known = store.get(item["id"])
+            # Versioned mode: an update only sticks with the stored lastUpdate.
+            if (
+                self.versioned
+                and known
+                and item.get("lastUpdate") != known.get("lastUpdate")
+            ):
+                continue
+            store[item["id"]] = {**(known or {}), **item}
+        for removed in deleted or []:
+            # Like the server: removals are {"itemId", "lastUpdate"} objects.
+            if isinstance(removed, dict):
+                store.pop(removed["itemId"], None)
+        order = item_ids if item_ids else list(store)
+        return {
+            "items": list(store.values()),
+            "list": {"itemIds": [i for i in order if i in store], "deletedItems": []},
+        }
+
+    prizes: dict | None = None
+    redeemed: list | None = None
+
+    async def lottery_detail(self, lottery_id):
+        prize = (self.prizes or {}).get(lottery_id, "None")
+        return {"id": lottery_id, "prize": {"type": prize}, "promotion": {"text": "Zdrapka"}}
+
+    async def redeem_lottery(self, lottery_id):
+        if self.redeemed is None:
+            self.redeemed = []
+        self.redeemed.append(lottery_id)
+        if self.home_payload:
+            self.home_payload["purchaseLottery"] = [
+                card
+                for card in self.home_payload.get("purchaseLottery", [])
+                if card["id"] != lottery_id
+            ]
+
 
 @pytest.fixture
 def entry(hass):

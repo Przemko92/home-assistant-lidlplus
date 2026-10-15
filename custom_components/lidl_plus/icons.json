@@ -1,18 +1,89 @@
 {
   "entity": {
     "sensor": {
-      "card": { "default": "mdi:credit-card-chip-outline" },
-      "last_transaction": { "default": "mdi:receipt-text-outline" },
-      "today_spend": { "default": "mdi:cash" },
-      "coupons": { "default": "mdi:ticket-percent-outline" },
-      "coupons_available": { "default": "mdi:ticket-confirmation-outline" },
-      "coupons_upcoming": { "default": "mdi:calendar-clock" }
+      "card": {
+        "default": "mdi:credit-card-chip-outline"
+      },
+      "last_transaction": {
+        "default": "mdi:receipt-text-outline"
+      },
+      "today_spend": {
+        "default": "mdi:cash"
+      },
+      "coupons": {
+        "default": "mdi:ticket-percent-outline"
+      },
+      "coupons_available": {
+        "default": "mdi:ticket-confirmation-outline"
+      },
+      "coupons_upcoming": {
+        "default": "mdi:calendar-clock"
+      },
+      "scratch_cards": {
+        "default": "mdi:ticket-confirmation-outline"
+      },
+      "gift_boxes": {
+        "default": "mdi:gift-outline"
+      },
+      "coupon_plus": {
+        "default": "mdi:cash-plus"
+      },
+      "stamp_card": {
+        "default": "mdi:sticker-outline"
+      },
+      "deposits": {
+        "default": "mdi:bottle-soda-classic-outline"
+      },
+      "alerts": {
+        "default": "mdi:email-outline"
+      },
+      "store_hours": {
+        "default": "mdi:store-clock-outline"
+      }
     },
     "button": {
-      "coupons_activate": { "default": "mdi:gesture-tap-button" }
+      "coupons_activate": {
+        "default": "mdi:gesture-tap-button"
+      },
+      "scratch_cards": {
+        "default": "mdi:gesture-tap-hold"
+      }
     },
     "switch": {
-      "auto_coupons": { "default": "mdi:auto-fix" }
+      "auto_coupons": {
+        "default": "mdi:auto-fix"
+      },
+      "auto_scratch": {
+        "default": "mdi:auto-fix"
+      }
+    },
+    "event": {
+      "new_coupon": {
+        "default": "mdi:ticket-percent"
+      },
+      "new_scratch_card": {
+        "default": "mdi:ticket-confirmation"
+      },
+      "new_gift": {
+        "default": "mdi:gift"
+      },
+      "new_coupon_plus": {
+        "default": "mdi:cash-plus"
+      },
+      "new_stamp_card": {
+        "default": "mdi:sticker-plus-outline"
+      },
+      "new_scratch_result": {
+        "default": "mdi:ticket-confirmation-outline"
+      }
+    },
+    "binary_sensor": {
+      "store_open": {
+        "default": "mdi:store-off-outline",
+        "state": {
+          "on": "mdi:store-check-outline"
+        }
+      }
     }
   }
 }
